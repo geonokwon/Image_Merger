@@ -109,27 +109,37 @@ def _make_labeled_block(
     """Create one block: label at top-left, image below. Block width = image width (no extra right padding)."""
     font = _default_font(28, bold=True)
     max_label_w = max(img.width - padding * 2, 50)
-    try:
-        bbox = font.getbbox(label)
-        label_w = bbox[2] - bbox[0] + padding * 2
+    # On Windows, font.getbbox() can block in headless/CI; use estimate for default font (~8px/char, 16px height).
+    use_estimate = sys.platform == "win32"
+    if use_estimate:
+        approx_char_w, approx_text_h = 8, 16
+        label_w = len(label) * approx_char_w + padding * 2
         if label_w > max_label_w:
-            while label_w > max_label_w and len(label) > 1:
-                label = label[:-1] + "…"
-                bbox = font.getbbox(label)
-                label_w = bbox[2] - bbox[0] + padding * 2
-    except Exception:
-        if len(label) * 14 > max_label_w:
-            label = label[: max(1, max_label_w // 14)] + "…"
+            n = max(1, (max_label_w - padding * 2 - 8) // approx_char_w)  # 8 for "…"
+            label = (label[:n] + "…") if len(label) > n else label
+        text_y = (label_height - approx_text_h) // 2
+    else:
+        try:
+            bbox = font.getbbox(label)
+            label_w = bbox[2] - bbox[0] + padding * 2
+            if label_w > max_label_w:
+                while label_w > max_label_w and len(label) > 1:
+                    label = label[:-1] + "…"
+                    bbox = font.getbbox(label)
+                    label_w = bbox[2] - bbox[0] + padding * 2
+        except Exception:
+            if len(label) * 14 > max_label_w:
+                label = label[: max(1, max_label_w // 14)] + "…"
+        try:
+            bbox = font.getbbox(label)
+            text_h = bbox[3] - bbox[1]
+            text_y = (label_height - text_h) // 2
+        except Exception:
+            text_y = 4
     block_w = img.width
     block_h = label_height + img.height
     block = Image.new("RGBA", (block_w, block_h), bg_color)
     draw = ImageDraw.Draw(block)
-    try:
-        bbox = font.getbbox(label)
-        text_h = bbox[3] - bbox[1]
-        text_y = (label_height - text_h) // 2
-    except Exception:
-        text_y = 4
     draw.text((padding, text_y), label, font=font, fill=text_color)
     block.paste(img, (0, label_height))
     return block
