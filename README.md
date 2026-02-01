@@ -44,6 +44,8 @@ git push -u origin main
 
 빌드 완료 후 **Actions → 해당 run → Artifacts**에서 다운로드해 사용하면 됩니다.
 
+**로컬에서 맥 빌드 시**: 프로젝트 경로에 한글 등 비영문 문자가 있으면 PyInstaller가 Qt 플러그인 경로를 찾지 못해 실패할 수 있습니다. 영문 경로(예: `~/Projects/Image_Merger`)로 복사한 뒤 빌드하거나, GitHub Actions로 빌드하는 것을 권장합니다.
+
 ## 구조
 
 - `main.py` — 앱 진입점

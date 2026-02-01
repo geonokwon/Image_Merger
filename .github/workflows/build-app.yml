@@ -23,10 +23,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest tests/ -v
+        run: pytest tests/ -v --timeout=120
 
       - name: Build Windows application (PyInstaller)
-        run: pyinstaller --noconfirm --onefile --windowed --name ImageMerger main.py
+        run: pyinstaller --noconfirm --onefile --windowed --name ImageMerger --distpath dist --workpath build --specpath . main.py
         shell: cmd
 
       - name: Upload Windows artifact
@@ -51,10 +51,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest tests/ -v
+        run: pytest tests/ -v --timeout=120
 
       - name: Build macOS application (PyInstaller .app)
-        run: pyinstaller --noconfirm --windowed --name ImageMerger main.py
+        run: |
+          pyinstaller --noconfirm --windowed --name ImageMerger \
+            --distpath dist --workpath build --specpath . \
+            --hidden-import PyQt5.sip \
+            main.py
+          ls -la dist/
+          ls -la dist/ImageMerger.app/
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4

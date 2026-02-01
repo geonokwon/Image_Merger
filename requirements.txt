@@ -4,4 +4,5 @@ PyMuPDF>=1.23.0
 
 # Dev / build
 pytest>=7.0.0
+pytest-timeout>=2.0.0
 pyinstaller>=6.0.0
