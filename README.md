@@ -28,23 +28,28 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-## 응용 프로그램 빌드 (GitHub Actions)
+## 응용 프로그램 빌드
 
-이 저장소를 `main` 또는 `master` 브랜치에 push하거나, GitHub Actions 탭에서 **Build Application** 워크플로를 수동 실행하면 **macOS용 .app**과 **Windows용 .exe**가 각각 빌드됩니다.
+### Mac (로컬 빌드)
+
+맥용은 로컬에서 `build_mac.sh`로 빌드해 `dist/`에 응용 프로그램(.app)을 만듭니다.
 
 ```bash
-git remote add origin git@github.com:geonokwon/Image_Merger.git
-git push -u origin main
+./build_mac.sh
+# 완료 후: dist/ImageMerger.app
 ```
 
-| 플랫폼 | Artifact | 결과물 |
-|--------|----------|--------|
-| Windows | `ImageMerger-Windows` | `ImageMerger.exe` (단일 실행 파일) |
-| macOS | `ImageMerger-macOS` | `ImageMerger.app` (앱 번들, 다운로드 후 압축 해제) |
+프로젝트 경로에 한글이 있으면 PyInstaller가 실패할 수 있어, 스크립트는 영문 경로(`/tmp/ImageMergerBuild`)에서 빌드한 뒤 `dist/`를 프로젝트로 복사합니다.
 
-빌드 완료 후 **Actions → 해당 run → Artifacts**에서 다운로드해 사용하면 됩니다.
+### Windows (GitHub Actions)
 
-**로컬에서 맥 빌드 시**: 프로젝트 경로에 한글 등 비영문 문자가 있으면 PyInstaller가 Qt 플러그인 경로를 찾지 못해 실패할 수 있습니다. 영문 경로(예: `~/Projects/Image_Merger`)로 복사한 뒤 빌드하거나, GitHub Actions로 빌드하는 것을 권장합니다.
+`main` 또는 `master`에 push하거나, Actions 탭에서 **Build Application (Windows)** 워크플로를 수동 실행하면 **Windows용 .exe**가 빌드됩니다.
+
+```bash
+git push origin main
+```
+
+빌드 완료 후 **Actions → 해당 run → Artifacts**에서 **ImageMerger-Windows**를 받으면 `ImageMerger.exe`가 포함됩니다.
 
 ## 구조
 

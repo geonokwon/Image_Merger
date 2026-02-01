@@ -1,4 +1,5 @@
 """Image merge logic - combines multiple images into one. Supports images and PDF (pages as images)."""
+import os
 import sys
 from pathlib import Path
 from enum import Enum
@@ -68,9 +69,9 @@ def load_images(paths: List[str]) -> List[Tuple[str, Image.Image]]:
 
 def _default_font(size: int = 14, bold: bool = False):
     """Try to load a readable font; bold first if requested, then regular, then default.
-    On Windows use load_default() to avoid truetype/getbbox() blocking in headless/CI.
+    On Windows or in CI use load_default() to avoid truetype/getbbox() blocking in headless.
     """
-    if sys.platform == "win32":
+    if sys.platform == "win32" or os.environ.get("CI") == "true":
         return ImageFont.load_default()
     bold_paths = (
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
@@ -109,8 +110,8 @@ def _make_labeled_block(
     """Create one block: label at top-left, image below. Block width = image width (no extra right padding)."""
     font = _default_font(28, bold=True)
     max_label_w = max(img.width - padding * 2, 50)
-    # On Windows, font.getbbox() can block in headless/CI; use estimate for default font (~8px/char, 16px height).
-    use_estimate = sys.platform == "win32"
+    # On Windows or in CI, font.getbbox() can block in headless; use estimate for default font (~8px/char, 16px height).
+    use_estimate = sys.platform == "win32" or os.environ.get("CI") == "true"
     if use_estimate:
         approx_char_w, approx_text_h = 8, 16
         label_w = len(label) * approx_char_w + padding * 2
@@ -142,6 +143,12 @@ def _make_labeled_block(
     draw = ImageDraw.Draw(block)
     draw.text((padding, text_y), label, font=font, fill=text_color)
     block.paste(img, (0, label_height))
+    # Black outline so "this image = this filename" is clear
+    draw.rectangle(
+        [(0, 0), (block_w - 1, block_h - 1)],
+        outline=(0, 0, 0, 255),
+        width=1,
+    )
     return block
 
 

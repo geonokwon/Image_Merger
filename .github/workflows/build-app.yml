@@ -1,4 +1,5 @@
-# Build standalone Windows application only
+# Build standalone Windows application (Windows only).
+# Mac: build locally with build_mac.sh → dist/ImageMerger.app
 name: Build Application (Windows)
 
 on:
