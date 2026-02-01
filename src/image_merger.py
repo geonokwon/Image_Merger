@@ -1,5 +1,5 @@
 """Image merge logic - combines multiple images into one. Supports images and PDF (pages as images)."""
-import os
+import sys
 from pathlib import Path
 from enum import Enum
 from typing import List, Tuple
@@ -68,9 +68,9 @@ def load_images(paths: List[str]) -> List[Tuple[str, Image.Image]]:
 
 def _default_font(size: int = 14, bold: bool = False):
     """Try to load a readable font; bold first if requested, then regular, then default.
-    In CI/headless (e.g. GitHub Actions Windows), skip system fonts to avoid getbbox() blocking.
+    On Windows use load_default() to avoid truetype/getbbox() blocking in headless/CI.
     """
-    if os.environ.get("CI") == "true":
+    if sys.platform == "win32":
         return ImageFont.load_default()
     bold_paths = (
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
