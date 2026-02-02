@@ -41,6 +41,20 @@ def _load_pdf_pages(path: str, dpi: int = 150) -> List[Image.Image]:
     return images
 
 
+def _resize_to_max(img: Image.Image, max_side: int) -> Image.Image:
+    """Resize image so the longer side is at most max_side; keep aspect ratio. Returns copy."""
+    w, h = img.size
+    if max_side <= 0 or (w <= max_side and h <= max_side):
+        return img.copy()
+    if w >= h:
+        new_w = max_side
+        new_h = max(1, int(h * max_side / w))
+    else:
+        new_h = max_side
+        new_w = max(1, int(w * max_side / h))
+    return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+
 def load_images(paths: List[str]) -> List[Tuple[str, Image.Image]]:
     """
     Load (label, image) from file paths.
@@ -68,11 +82,9 @@ def load_images(paths: List[str]) -> List[Tuple[str, Image.Image]]:
 
 
 def _default_font(size: int = 14, bold: bool = False):
-    """Try to load a readable font; bold first if requested, then regular, then default.
-    On Windows or in CI use load_default() to avoid truetype/getbbox() blocking in headless.
+    """Try to load a readable font (UTF-8/한글 가능); bold first if requested, then regular, then default.
+    On Windows/CI we avoid calling getbbox() in _make_labeled_block; here we still try Arial etc. for UTF-8.
     """
-    if sys.platform == "win32" or os.environ.get("CI") == "true":
-        return ImageFont.load_default()
     bold_paths = (
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
         "/System/Library/Fonts/Helvetica.ttc",  # index 1 is often bold
@@ -102,18 +114,18 @@ def _default_font(size: int = 14, bold: bool = False):
 def _make_labeled_block(
     label: str,
     img: Image.Image,
-    label_height: int = 44,
-    padding: int = 8,
+    label_height: int = 64,
+    padding: int = 10,
     bg_color: tuple = (255, 255, 255, 255),
     text_color: tuple = (0, 0, 0, 255),
 ) -> Image.Image:
-    """Create one block: label at top-left, image below. Block width = image width (no extra right padding)."""
-    font = _default_font(28, bold=True)
-    max_label_w = max(img.width - padding * 2, 50)
-    # On Windows or in CI, font.getbbox() can block in headless; use estimate for default font (~8px/char, 16px height).
+    """Create one block: label at top-left (bold, larger), image below. Block width = image width."""
+    font = _default_font(38, bold=True)
+    max_label_w = max(img.width - padding * 2, 80)
+    # On Windows or in CI, font.getbbox() can block in headless; use estimate (~10px/char, 24px height for size 38).
     use_estimate = sys.platform == "win32" or os.environ.get("CI") == "true"
     if use_estimate:
-        approx_char_w, approx_text_h = 8, 16
+        approx_char_w, approx_text_h = 10, 24
         label_w = len(label) * approx_char_w + padding * 2
         if label_w > max_label_w:
             n = max(1, (max_label_w - padding * 2 - 8) // approx_char_w)  # 8 for "…"
@@ -129,14 +141,14 @@ def _make_labeled_block(
                     bbox = font.getbbox(label)
                     label_w = bbox[2] - bbox[0] + padding * 2
         except Exception:
-            if len(label) * 14 > max_label_w:
-                label = label[: max(1, max_label_w // 14)] + "…"
+            if len(label) * 18 > max_label_w:
+                label = label[: max(1, max_label_w // 18)] + "…"
         try:
             bbox = font.getbbox(label)
             text_h = bbox[3] - bbox[1]
             text_y = (label_height - text_h) // 2
         except Exception:
-            text_y = 4
+            text_y = 8
     block_w = img.width
     block_h = label_height + img.height
     block = Image.new("RGBA", (block_w, block_h), bg_color)
@@ -156,16 +168,21 @@ def merge_images(
     labeled_items: List[Tuple[str, Image.Image]],
     direction: MergeDirection = MergeDirection.VERTICAL,
     spacing: int = 0,
-    label_height: int = 44,
+    label_height: int = 64,
     cols_per_row: int = 3,
     background_color: tuple = (255, 255, 255, 255),
+    max_image_size: int = 0,
 ) -> Image.Image:
     """
     Merge (label, image) blocks into one. Layout: up to 3 blocks per row (가로 3개), then next row.
     Each block = label at top-left, image below. Block width = image width.
+    If max_image_size > 0, each image is resized so its longer side is at most that (keeps aspect ratio).
     """
     if not labeled_items:
         raise ValueError("No images to merge")
+
+    if max_image_size > 0:
+        labeled_items = [(label, _resize_to_max(img, max_image_size)) for label, img in labeled_items]
 
     blocks = [_make_labeled_block(label, img, label_height=label_height) for label, img in labeled_items]
 

@@ -1,13 +1,15 @@
 """PyQt5 list widget that accepts drag-and-drop of image and PDF files."""
 from pathlib import Path
 
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QPoint
 from PyQt5.QtGui import (
     QDragEnterEvent,
     QDragMoveEvent,
     QDropEvent,
     QImage,
     QPixmap,
+    QPainter,
+    QColor,
 )
 from PyQt5.QtWidgets import QListWidget, QListWidgetItem, QSizePolicy
 
@@ -30,26 +32,46 @@ class ImageListWidget(QListWidget):
         self.setIconSize(QSize(72, 72))
         self.setSpacing(4)
         self.setDragDropMode(QListWidget.InternalMove)
-        self.setDefaultDropAction(Qt.MoveAction)
+        self.setDefaultDropAction(Qt.TargetMoveAction)
+        self.setDropIndicatorShown(True)
+        self.setStyleSheet("""
+            QListWidget {
+                show-decoration-selected: 1;
+            }
+        """)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumHeight(120)
+        self._drop_line_y = None
 
     def dragEnterEvent(self, event: QDragEnterEvent):
-        # 외부 파일 추가(URL) 또는 목록 내 순서 변경(같은 위젯에서 드래그)
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
         elif event.source() is self:
             event.acceptProposedAction()
+        self._drop_line_y = None
+        self.update()
+
+    def dragLeaveEvent(self, event):
+        self._drop_line_y = None
+        self.update()
+        super().dragLeaveEvent(event)
 
     def dragMoveEvent(self, event: QDragMoveEvent):
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
             event.accept()
         elif event.source() is self:
-            event.setDropAction(Qt.MoveAction)
+            event.setDropAction(Qt.TargetMoveAction)
             event.accept()
+            vp_pos = self.viewport().mapFrom(self, event.pos())
+            self._drop_line_y = self._drop_line_y_at(vp_pos)
+            self.update()
+        else:
+            self._drop_line_y = None
+            self.update()
 
     def dropEvent(self, event: QDropEvent):
+        self._drop_line_y = None
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
             event.accept()
@@ -61,9 +83,73 @@ class ImageListWidget(QListWidget):
                             self._add_item(path)
                 except Exception:
                     pass
-        else:
-            # 목록 내 드래그: 순서 변경
-            super().dropEvent(event)
+            return
+        # 목록 내 순서 변경: Qt 기본 drop 시 항목 사라지는 버그 회피 → 수동 이동
+        if event.source() is self:
+            event.accept()
+            drop_index = self._drop_index_at(self.viewport().mapFrom(self, event.pos()))
+            selected = self.selectedItems()
+            if not selected:
+                return
+            item = selected[0]
+            row = self.row(item)
+            if row < 0:
+                return
+            taken = self.takeItem(row)
+            if taken is None:
+                return
+            if row < drop_index:
+                drop_index -= 1
+            self.insertItem(drop_index, taken)
+            self.setCurrentItem(taken)
+            return
+        super().dropEvent(event)
+
+    def _drop_index_at(self, viewport_pos):
+        """Return index to insert at: cursor in top half of item → before, bottom half → after."""
+        idx = self.indexAt(viewport_pos)
+        if not idx.isValid():
+            return self.count()
+        row = idx.row()
+        rect = self.visualItemRect(self.item(row))
+        if not rect.isValid():
+            return row
+        mid_y = rect.top() + rect.height() // 2
+        if viewport_pos.y() < mid_y:
+            return row
+        return row + 1
+
+    def _drop_line_y_at(self, viewport_pos):
+        """드롭 위치 선 Y (뷰포트 기준)."""
+        idx = self.indexAt(viewport_pos)
+        if not idx.isValid():
+            if self.count() == 0:
+                return 10
+            last = self.item(self.count() - 1)
+            rect = self.visualItemRect(last)
+            return rect.bottom() + 2 if rect.isValid() else None
+        row = idx.row()
+        rect = self.visualItemRect(self.item(row))
+        if not rect.isValid():
+            return None
+        mid_y = rect.top() + rect.height() // 2
+        if viewport_pos.y() < mid_y:
+            return rect.top() - 1
+        return rect.bottom() + 2
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._drop_line_y is not None:
+            pt = self.viewport().mapTo(self, QPoint(0, self._drop_line_y))
+            y = pt.y()
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            # 눈에 띄는 드롭 위치: 굵은 선 + 살짝 그림자
+            for dx, dy, color in [(1, 1, QColor(0, 0, 0, 60)), (0, 0, QColor(0, 120, 255))]:
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(color)
+                painter.drawRoundedRect(4, y - 3 + dy, max(0, self.width() - 8), 6, 3, 3)
+            painter.end()
 
     def _pdf_first_page_thumbnail(self, path: str) -> QPixmap:
         """Render first page of PDF as thumbnail. Returns null QPixmap on failure."""

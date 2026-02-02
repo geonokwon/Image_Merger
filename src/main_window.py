@@ -59,6 +59,13 @@ class MainWindow(QMainWindow):
         self.spacing_spin.setRange(0, 100)
         self.spacing_spin.setValue(0)
         opt_layout.addWidget(self.spacing_spin)
+        opt_layout.addWidget(QLabel("최대 변 (px):"))
+        self.max_size_spin = QSpinBox()
+        self.max_size_spin.setRange(0, 8000)
+        self.max_size_spin.setValue(1200)
+        self.max_size_spin.setSpecialValueText("리사이즈 안 함")
+        self.max_size_spin.setToolTip("각 이미지의 긴 변을 이 값 이하로 줄입니다. 0이면 리사이즈 안 함.")
+        opt_layout.addWidget(self.max_size_spin)
         opt_layout.addStretch()
         layout.addLayout(opt_layout)
 
@@ -116,8 +123,11 @@ class MainWindow(QMainWindow):
             return
         direction = self.direction_combo.currentData()
         spacing = self.spacing_spin.value()
+        max_image_size = self.max_size_spin.value()
         try:
-            self._merged_image = merge_images(labeled_items, direction=direction, spacing=spacing)
+            self._merged_image = merge_images(
+                labeled_items, direction=direction, spacing=spacing, max_image_size=max_image_size
+            )
             self.save_btn.setEnabled(True)
             QMessageBox.information(
                 self, "완료", f"블록 {len(labeled_items)}개를 합쳤습니다. '저장'으로 저장하세요."

@@ -55,24 +55,24 @@ def test_load_images_multiple(temp_image_10x10, temp_image_20x20):
 def test_merge_images_vertical(temp_image_10x10, temp_image_20x20):
     labeled = load_images([temp_image_10x10, temp_image_20x20])
     result = merge_images(labeled, direction=MergeDirection.VERTICAL)
-    # grid: 1 row with 2 blocks, block width = img.width (10, 20), label_height=44
+    # grid: 1 row with 2 blocks, block width = img.width (10, 20), label_height=64
     assert result.width == 10 + 20
-    assert result.height == max(44 + 10, 44 + 20)
+    assert result.height == max(64 + 10, 64 + 20)
 
 
 def test_merge_images_horizontal(temp_image_10x10, temp_image_20x20):
     labeled = load_images([temp_image_10x10, temp_image_20x20])
     result = merge_images(labeled, direction=MergeDirection.HORIZONTAL)
     assert result.width == 10 + 20
-    assert result.height == max(44 + 10, 44 + 20)
+    assert result.height == max(64 + 10, 64 + 20)
 
 
 def test_merge_images_with_spacing(temp_image_10x10):
     labeled = load_images([temp_image_10x10, temp_image_10x10])
     result = merge_images(labeled, direction=MergeDirection.VERTICAL, spacing=5)
-    # 1 row, 2 blocks: width = 10+5+10, height = max(54,54)=54
+    # 1 row, 2 blocks: width = 10+5+10, height = 64+10
     assert result.width == 10 + 5 + 10
-    assert result.height == 44 + 10
+    assert result.height == 64 + 10
 
 
 def test_merge_images_empty_raises():
